@@ -1,17 +1,21 @@
 # Importing required libraries
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from .models import Book, IssuedItem
+from .models import Book, IssuedItem, Student
 from django.contrib import messages
 from django.contrib.auth.models import auth, User
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from datetime import date
 from django.core.paginator import Paginator
-
+from django.views import generic
+from django.views.decorators.csrf import csrf_exempt
 
 # ----------------- Library Management System Views -----------------
 
 # Home view
+
+
 def home(request):
     return render(request, "home.html")
 
@@ -139,7 +143,8 @@ def issue(request):
 def history(request):
 
     # Get all issued books to user
-    my_items = IssuedItem.objects.filter(user_id=request.user).order_by("-issue_date")
+    my_items = IssuedItem.objects.filter(
+        user_id=request.user).order_by("-issue_date")
 
     # Paginate data
     paginator = Paginator(my_items, 10)
@@ -187,3 +192,103 @@ def return_item(request):
     # Return return page with books that are issued to user
     params = {"books": books}
     return render(request, "return_item.html", params)
+
+
+class BookData:
+    def __init__(self) -> None:
+        self.json = []
+
+    def addBook(self, book: Book):
+        self.json.append({"date": book.book_add_date,
+                          "name": book.book_name,
+                          "author": book.author_name,
+                          'isbn': book.isbn,
+                          'quantity': book.quantity})
+
+@csrf_exempt
+def query_book_all(request):
+    books = Book.objects.all()
+    bookdata = BookData()
+    for book in books:
+        bookdata.addBook(book)
+
+    # 返回前端json
+    return JsonResponse(data=bookdata.json, safe=False)
+
+@csrf_exempt
+def query_book(request):
+    title = request.GET['title']
+    author = request.GET['author']
+    try:
+        book = Book.objects.get(book_name=title, author=author)
+    except:
+        return JsonResponse(data=[], safe=False)
+    data = BookData()
+    data.addBook(book)
+    # 返回前端json
+    return JsonResponse(data=data.json, safe=False)
+
+@csrf_exempt
+def add_book_isbn(request):
+    isbn = request.GET['isbn']
+    name = request.GET['title']
+    author = request.GET['author']
+    pubulisher = request.GET['publisher']
+    
+    book = Book(isbn=isbn, book_name=name, author=author,
+                pubulisher=pubulisher)
+    try:
+        book.save()
+    except:
+        return JsonResponse(data=[{'bool': False}], safe=False)
+    # 返回前端json
+    return JsonResponse(data=[{'bool': True}], safe=False)
+
+@csrf_exempt
+def update_book_isbn(request):
+    isbn = request.GET['isbn']
+    name = request.GET['title']
+    author = request.GET['author']
+    pubulisher = request.GET['pubulisher']
+
+    try:
+        book = Book.objects.get(isbn=isbn)
+        book.book_name = name
+        book.author = author
+        book.pubulisher = pubulisher
+        book.save()
+    except:
+        return JsonResponse(data=[{'bool': False}], safe=False)
+    # 返回前端json
+    return JsonResponse(data=[{'bool': True}], safe=False)
+
+@csrf_exempt
+def delete_book_isbn(request):
+    isbn = request.GET.get('isbn')
+    print(isbn)
+    try:
+        book = Book.objects.get(isbn=isbn)
+        book.delete()
+    except:
+        return JsonResponse(data=[{'bool': False}], safe=False)
+    # 返回前端json
+    return JsonResponse(data=[{'bool': True}], safe=False)
+
+@csrf_exempt
+def lend_book(request):
+    isbn = request.GET['isbn']
+    card = request.GET['card']
+    try:
+        stu = Student.objects.get(student_card=card)
+        book = Book.objects.get(isbn=isbn)
+        if stu.lend_count == 1 or book.quantity == 0:
+            raise Student.DoesNotExist
+    except:
+        return JsonResponse(data=[{'bool': False}], safe=False)
+    book.quantity -= 1
+    book.save()
+    stu.lend_count += 1
+    stu.isbn = book
+    stu.save()
+    # 返回前端json
+    return JsonResponse(data=[{'bool': True}], safe=False)
