@@ -12,6 +12,7 @@ urlpatterns = [
     path("bookquery", views.query_book, name=""),
     path("bookqueryAll", views.query_book_all, name=""),
     path("lend", views.lend_book, name=""),
+    path("return", views.return_book, name=""),
     path("issue", views.issue, name="issue"),
     path("login/", views.login, name="login"),
     path("register/", views.register, name="register"),

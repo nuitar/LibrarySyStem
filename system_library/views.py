@@ -217,9 +217,10 @@ def query_book_all(request):
 
 @csrf_exempt
 def query_book(request):
-    title = request.GET['title']
-    author = request.GET['author']
+    
     try:
+        title = request.GET['title']
+        author = request.GET['author']
         book = Book.objects.get(book_name=title, author=author)
     except:
         return JsonResponse(data=[], safe=False)
@@ -230,14 +231,14 @@ def query_book(request):
 
 @csrf_exempt
 def add_book_isbn(request):
-    isbn = request.GET['isbn']
-    name = request.GET['title']
-    author = request.GET['author']
-    pubulisher = request.GET['publisher']
-    
-    book = Book(isbn=isbn, book_name=name, author=author,
-                pubulisher=pubulisher)
     try:
+        isbn = request.GET['isbn']
+        name = request.GET['title']
+        author = request.GET['author']
+        pubulisher = request.GET['publisher']
+        
+        book = Book(isbn=isbn, book_name=name, author=author,
+                    pubulisher=pubulisher)
         book.save()
     except:
         return JsonResponse(data=[{'bool': False}], safe=False)
@@ -246,12 +247,12 @@ def add_book_isbn(request):
 
 @csrf_exempt
 def update_book_isbn(request):
-    isbn = request.GET['isbn']
-    name = request.GET['title']
-    author = request.GET['author']
-    pubulisher = request.GET['pubulisher']
-
     try:
+        isbn = request.GET['isbn']
+        name = request.GET['title']
+        author = request.GET['author']
+        pubulisher = request.GET['pubulisher']
+
         book = Book.objects.get(isbn=isbn)
         book.book_name = name
         book.author = author
@@ -276,9 +277,9 @@ def delete_book_isbn(request):
 
 @csrf_exempt
 def lend_book(request):
-    isbn = request.GET['isbn']
-    card = request.GET['card']
     try:
+        isbn = request.GET['isbn']
+        card = request.GET['card']
         stu = Student.objects.get(student_card=card)
         book = Book.objects.get(isbn=isbn)
         if stu.lend_count == 1 or book.quantity == 0:
@@ -289,6 +290,28 @@ def lend_book(request):
     book.save()
     stu.lend_count += 1
     stu.isbn = book
+    stu.save()
+    # 返回前端json
+    return JsonResponse(data=[{'bool': True}], safe=False)
+
+
+@csrf_exempt
+def return_book(request):
+    try:
+        card = request.GET['card']
+        stu = Student.objects.get(student_card=card)
+        
+        book = stu.isbn
+        if stu.lend_count != 1:
+            raise Student.DoesNotExist
+    except:
+        return JsonResponse(data=[{'bool': False}], safe=False)
+    book.quantity += 1
+    book.save()
+    
+    stu.lend_count -= 1
+    noneBook = Book.objects.get(isbn='-1')
+    stu.isbn = noneBook
     stu.save()
     # 返回前端json
     return JsonResponse(data=[{'bool': True}], safe=False)
