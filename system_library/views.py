@@ -1,7 +1,7 @@
 # Importing required libraries
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from .models import Book, IssuedItem, Student
+from .models import Book, IssuedItem, Person, BookManager, BookCategory, Education, Lend
 from django.contrib import messages
 from django.contrib.auth.models import auth, User
 from django.db.models import Q
@@ -10,7 +10,10 @@ from datetime import date
 from django.core.paginator import Paginator
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
 
+import json
+import os
 # ----------------- Library Management System Views -----------------
 
 # Home view
@@ -198,120 +201,266 @@ class BookData:
     def __init__(self) -> None:
         self.json = []
 
-    def addBook(self, book: Book):
-        self.json.append({"date": book.book_add_date,
+    def appendBook(self, book: Book):
+        self.json.append(self.to_json(book))
+    
+    @staticmethod
+    def to_json(book:Book):
+        return {"isbn": book.isbn,
                           "name": book.book_name,
-                          "author": book.author_name,
-                          'isbn': book.isbn,
-                          'quantity': book.quantity})
+                          "date": book.book_add_datetime,
+                          "author": book.author,
+                          'quantity': book.quantity,
+                          'publisher': book.pubulisher,
+                          'category': book.book_category.category}
 
+class PersonData:
+    def __init__(self) -> None:
+        self.json = []
+
+    def appendPerson(self, person: Person):
+        self.json.append(self.to_json(person))
+
+    @staticmethod
+    def to_json(person:Person):
+        return {"name": person.name,
+                          "card": person.card,
+                          'specialty':person.specialty,
+                          'education': person.education.edu}
+class LendData:
+    def __init__(self) -> None:
+        self.json = []
+
+    def appendLend(self, lend: Lend):
+        self.json.append(self.to_json(lend))
+    
+    @staticmethod
+    def to_json(lend:Lend):
+        return {"person": PersonData.to_json(lend.person),
+                          "book": BookData.to_json(lend.book),
+                          'lend_date':lend.lend_date}
+        
 @csrf_exempt
 def query_book_all(request):
     books = Book.objects.all()
     bookdata = BookData()
     for book in books:
-        bookdata.addBook(book)
+        if book.book_name == "None":
+            continue
+        bookdata.appendBook(book)
 
     # 返回前端json
     return JsonResponse(data=bookdata.json, safe=False)
 
+
 @csrf_exempt
 def query_book(request):
-    
     try:
-        title = request.GET['title']
-        author = request.GET['author']
-        book = Book.objects.get(book_name=title, author=author)
+        post_json = json.loads(request.body)
+        print(post_json)
+        isbn = post_json['isbn']
+        
+        # author = post_json['author']
+        book = Book.objects.get(isbn=isbn)
     except:
         return JsonResponse(data=[], safe=False)
-    data = BookData()
-    data.addBook(book)
     # 返回前端json
-    return JsonResponse(data=data.json, safe=False)
+    return JsonResponse(data=[BookData.to_json(book)], safe=False)
 
 @csrf_exempt
-def add_book_isbn(request):
+def query_person(request):
     try:
-        isbn = request.GET['isbn']
-        name = request.GET['title']
-        author = request.GET['author']
-        pubulisher = request.GET['publisher']
-        
-        book = Book(isbn=isbn, book_name=name, author=author,
-                    pubulisher=pubulisher)
+        post_json = json.loads(request.body)
+        card = post_json['card']
+        person = Person.objects.get(card=card)
+    except:
+        return JsonResponse(data=[], safe=False)
+    # 返回前端json
+    return JsonResponse(data=[PersonData.to_json(person)], safe=False)
+
+@csrf_exempt
+def query_lend_all(request):
+    lends = Lend.objects.all()
+    lend_data = LendData()
+    for lend in lends:
+        lend_data.appendLend(lend)
+    # 返回前端json
+    return JsonResponse(data=lend_data.json, safe=False)
+
+@csrf_exempt
+def person_query_lend(request):
+    try:
+        post_json = json.loads(request.body)
+        card = post_json['card']
+        person = Person.objects.get(card=card)
+        lends = Lend.objects.filter(person=person)
+        book_data = BookData()
+        for lend in lends:
+            book_data.appendBook(lend.book)
+    except:
+        return JsonResponse(data=[], safe=False)
+    # 返回前端json
+    return JsonResponse(data=book_data.json, safe=False)
+
+
+@csrf_exempt
+def add_person(request):
+    try:
+        post_json = json.loads(request.body)        
+        name = post_json['name']
+        card =post_json['card']
+        specialty = post_json['specialty']
+        education_char = post_json['education'] # 本科 研究生 老师等
+        education = Education.objects.get(edu=education_char)
+        person = Person(name=name,card=card,specialty=specialty,education=education)
+        person.save()
+    except:
+        return JsonResponse(data=[{'status':False}], safe=False)
+    # 返回前端json
+    return JsonResponse(data=[{'status':True}], safe=False)
+
+
+@csrf_exempt
+def add_book(request: HttpRequest):
+    try:
+        post_json = json.loads(request.body)
+        print(post_json)
+        isbn = post_json['isbn']
+        name = post_json['book_name']
+        author = post_json['author']
+        pubulisher = post_json['publisher']
+        try:
+            quantity = post_json['quantity']
+        except:
+            quantity = 1
+        char_category = post_json['category']
+        book_category = BookCategory.objects.get(category=char_category)
+
+        book = Book(isbn=isbn, book_name=name, author=author, quantity=quantity,
+                    pubulisher=pubulisher, book_category=book_category)
         book.save()
     except:
-        return JsonResponse(data=[{'bool': False}], safe=False)
+        return JsonResponse(data=[{'status': False}], safe=False)
     # 返回前端json
-    return JsonResponse(data=[{'bool': True}], safe=False)
+    return JsonResponse(data=[{'status': True}], safe=False)
+
 
 @csrf_exempt
-def update_book_isbn(request):
+def update_book_isbn(request: HttpRequest):
     try:
-        isbn = request.GET['isbn']
-        name = request.GET['title']
-        author = request.GET['author']
-        pubulisher = request.GET['pubulisher']
+        post_json = json.loads(request.body)
+        print(post_json)
+        isbn = post_json['isbn']
+        name = post_json['book_name']
+        author = post_json['author']
+        pubulisher = post_json['publisher']
+        try:
+            quantity = post_json['quantity']
+        except:
+            quantity = 1
+
+        char_category = post_json['category']
+        book_category = BookCategory.objects.get(category=char_category)
 
         book = Book.objects.get(isbn=isbn)
         book.book_name = name
         book.author = author
         book.pubulisher = pubulisher
+        book.quantity = quantity
+        book.book_category = book_category
         book.save()
     except:
-        return JsonResponse(data=[{'bool': False}], safe=False)
+        return JsonResponse(data=[{'status': False}], safe=False)
     # 返回前端json
-    return JsonResponse(data=[{'bool': True}], safe=False)
+    return JsonResponse(data=[{'status': True}], safe=False)
+
 
 @csrf_exempt
 def delete_book_isbn(request):
-    isbn = request.GET.get('isbn')
-    print(isbn)
     try:
+        post_json = json.loads(request.body)
+        isbn = post_json['isbn']
         book = Book.objects.get(isbn=isbn)
         book.delete()
     except:
-        return JsonResponse(data=[{'bool': False}], safe=False)
+        return JsonResponse(data=[{'status': False}], safe=False)
     # 返回前端json
-    return JsonResponse(data=[{'bool': True}], safe=False)
+    return JsonResponse(data=[{'status': True}], safe=False)
+
 
 @csrf_exempt
 def lend_book(request):
     try:
-        isbn = request.GET['isbn']
-        card = request.GET['card']
-        stu = Student.objects.get(student_card=card)
+        post_json = json.loads(request.body)
+        print(post_json)
+        isbn = post_json['isbn']
+        card = post_json['card']
+        person = Person.objects.get(card=card)
         book = Book.objects.get(isbn=isbn)
-        if stu.lend_count == 1 or book.quantity == 0:
-            raise Student.DoesNotExist
+        if (Lend.objects.filter(person=person).count() == person.education.max_lend_count
+                or book.quantity == 0):
+            raise OverflowError
+        lend = Lend(person=person, book=book)
+        lend.save()
+        
+        book.quantity -= 1
+        book.save()
+
+        
     except:
-        return JsonResponse(data=[{'bool': False}], safe=False)
-    book.quantity -= 1
-    book.save()
-    stu.lend_count += 1
-    stu.isbn = book
-    stu.save()
+        return JsonResponse(data=[{'status': False}], safe=False)
+
     # 返回前端json
-    return JsonResponse(data=[{'bool': True}], safe=False)
+    return JsonResponse(data=[{'status': True}], safe=False)
 
 
 @csrf_exempt
 def return_book(request):
     try:
-        card = request.GET['card']
-        stu = Student.objects.get(student_card=card)
-        
-        book = stu.isbn
-        if stu.lend_count != 1:
-            raise Student.DoesNotExist
+        post_json = json.loads(request.body)
+
+        card = post_json['card']
+        isbn = post_json['isbn']
+
+        person = Person.objects.get(card=card)
+        book = Book.objects.get(isbn=isbn)
+
+        lend = Lend.objects.get(person=person, book=book)
+        lend_days = (timezone.now() - lend.lend_date).days - \
+            person.education.max_lend_day
+
+        if lend_days > 0:
+            fine = book.book_category.per_day_fine*lend_days
+            return JsonResponse(data=[{'fine': fine, 'status': False}], safe=False)
+        book.quantity += 1
+        book.save()
+        lend.delete()
     except:
-        return JsonResponse(data=[{'bool': False}], safe=False)
-    book.quantity += 1
-    book.save()
+        return JsonResponse(data=[{'fine': 0,'status': False}], safe=False)
     
-    stu.lend_count -= 1
-    noneBook = Book.objects.get(isbn='-1')
-    stu.isbn = noneBook
-    stu.save()
     # 返回前端json
-    return JsonResponse(data=[{'bool': True}], safe=False)
+    return JsonResponse(data=[{'fine': 0,'status': True}], safe=False)
+
+
+@csrf_exempt
+def img_read(request: HttpRequest, img_name: str):
+    try:
+        with open(f'system_library/static/system_library/images/{img_name}', 'rb') as f:
+            img_data = f.read()
+    except:
+        return HttpResponse(None, content_type="image/png")
+    return HttpResponse(img_data, content_type="image/png")
+
+
+@csrf_exempt
+def img_save(request: HttpRequest, img_name: str):
+    try:
+        print(request.POST['username'])
+        img = request.FILES['file']
+
+        with open(f'system_library/static/system_library/images/{img_name}', 'wb') as f:
+            for chunk in img.chunks():
+                f.write(chunk)
+    except:
+        return JsonResponse([{'status': False}])
+    return JsonResponse([{'status': True}])

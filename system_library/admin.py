@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Student,Book
+from .models import Person,Book,BookManager,BookCategory,Education,Lend
 
 # Register your models here.
 
@@ -18,5 +18,9 @@ from .models import Student,Book
 #     inlines = [StudentInline]
     
     
-admin.site.register(Student)
+admin.site.register(Person)
 admin.site.register(Book)
+admin.site.register(BookManager)
+admin.site.register(BookCategory)
+admin.site.register(Education)
+admin.site.register(Lend)
