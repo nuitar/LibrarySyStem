@@ -211,7 +211,7 @@ class BookData:
                           "date": book.book_add_datetime,
                           "author": book.author,
                           'quantity': book.quantity,
-                          'publisher': book.pubulisher,
+                          'publisher': book.publisher,
                           'category': book.book_category.category}
 
 class PersonData:
@@ -324,7 +324,7 @@ def add_book(request: HttpRequest):
         isbn = post_json['isbn']
         name = post_json['book_name']
         author = post_json['author']
-        pubulisher = post_json['publisher']
+        publisher = post_json['publisher']
         try:
             quantity = post_json['quantity']
         except:
@@ -333,7 +333,7 @@ def add_book(request: HttpRequest):
         book_category = BookCategory.objects.get(category=char_category)
 
         book = Book(isbn=isbn, book_name=name, author=author, quantity=quantity,
-                    pubulisher=pubulisher, book_category=book_category)
+                    publisher=publisher, book_category=book_category)
         book.save()
     except:
         return JsonResponse(data=[], safe=False,status=400)
@@ -349,7 +349,7 @@ def update_book_isbn(request: HttpRequest):
         isbn = post_json['isbn']
         name = post_json['book_name']
         author = post_json['author']
-        pubulisher = post_json['publisher']
+        publisher = post_json['publisher']
         try:
             quantity = post_json['quantity']
         except:
@@ -361,7 +361,7 @@ def update_book_isbn(request: HttpRequest):
         book = Book.objects.get(isbn=isbn)
         book.book_name = name
         book.author = author
-        book.publisher = pubulisher
+        book.publisher = publisher
         book.quantity = quantity
         book.book_category = book_category
         book.save()
