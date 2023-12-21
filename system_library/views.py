@@ -256,9 +256,7 @@ def query_book_all(request):
 @csrf_exempt
 def query_book(request):
     try:
-        post_json = json.loads(request.body)
-         
-        isbn = post_json['isbn']
+        isbn =request.GET['isbn']
         
         # author = post_json['author']
         book = Book.objects.get(isbn=isbn)
@@ -270,8 +268,7 @@ def query_book(request):
 @csrf_exempt
 def query_person(request):
     try:
-        post_json = json.loads(request.body)
-        card = post_json['card']
+        card = request.GET['card']
         person = Person.objects.get(card=card)
     except:
         return JsonResponse(data=[], safe=False,status=400)
@@ -290,8 +287,7 @@ def query_lend_all(request):
 @csrf_exempt
 def person_query_lend(request):
     try:
-        post_json = json.loads(request.body)
-        card = post_json['card']
+        card = request.GET['card']
         person = Person.objects.get(card=card)
         lends = Lend.objects.filter(person=person)
         book_data = BookData()
