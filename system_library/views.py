@@ -1,7 +1,7 @@
 # Importing required libraries
 from django.http import JsonResponse, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from .models import Book, IssuedItem, Person, BookManager, BookCategory, Education, Lend
+from .models import Book, IssuedItem, Person, BookManager, BookCategory, Education, Lend,Reserve
 from django.contrib import messages
 from django.contrib.auth.models import auth, User
 from django.db.models import Q
@@ -250,14 +250,14 @@ def query_book_all(request):
         bookdata.appendBook(book)
 
     # 返回前端json
-    return JsonResponse(data=bookdata.json, safe=False)
+    return JsonResponse(data=bookdata.json, safe=False,status=200)
 
 
 @csrf_exempt
 def query_book(request):
     try:
         post_json = json.loads(request.body)
-        print(post_json)
+         
         isbn = post_json['isbn']
         
         # author = post_json['author']
@@ -274,9 +274,9 @@ def query_person(request):
         card = post_json['card']
         person = Person.objects.get(card=card)
     except:
-        return JsonResponse(data=[], safe=False)
+        return JsonResponse(data=[], safe=False,status=400)
     # 返回前端json
-    return JsonResponse(data=[PersonData.to_json(person)], safe=False)
+    return JsonResponse(data=[PersonData.to_json(person)], safe=False,status=200)
 
 @csrf_exempt
 def query_lend_all(request):
@@ -285,7 +285,7 @@ def query_lend_all(request):
     for lend in lends:
         lend_data.appendLend(lend)
     # 返回前端json
-    return JsonResponse(data=lend_data.json, safe=False)
+    return JsonResponse(data=lend_data.json, safe=False,status=200)
 
 @csrf_exempt
 def person_query_lend(request):
@@ -298,9 +298,9 @@ def person_query_lend(request):
         for lend in lends:
             book_data.appendBook(lend.book)
     except:
-        return JsonResponse(data=[], safe=False)
+        return JsonResponse(data=[], safe=False,status=400)
     # 返回前端json
-    return JsonResponse(data=book_data.json, safe=False)
+    return JsonResponse(data=book_data.json, safe=False,status=200)
 
 
 @csrf_exempt
@@ -315,16 +315,16 @@ def add_person(request):
         person = Person(name=name,card=card,specialty=specialty,education=education)
         person.save()
     except:
-        return JsonResponse(data=[{'status':False}], safe=False)
+        return JsonResponse(data=[{'status':False}], safe=False,status=400)
     # 返回前端json
-    return JsonResponse(data=[{'status':True}], safe=False)
+    return JsonResponse(data=[{'status':True}], safe=False,status=200)
 
 
 @csrf_exempt
 def add_book(request: HttpRequest):
     try:
         post_json = json.loads(request.body)
-        print(post_json)
+         
         isbn = post_json['isbn']
         name = post_json['book_name']
         author = post_json['author']
@@ -340,16 +340,16 @@ def add_book(request: HttpRequest):
                     pubulisher=pubulisher, book_category=book_category)
         book.save()
     except:
-        return JsonResponse(data=[{'status': False}], safe=False)
+        return JsonResponse(data=[], safe=False,status=400)
     # 返回前端json
-    return JsonResponse(data=[{'status': True}], safe=False)
+    return JsonResponse(data=[], safe=False,status=200)
 
 
 @csrf_exempt
 def update_book_isbn(request: HttpRequest):
     try:
         post_json = json.loads(request.body)
-        print(post_json)
+         
         isbn = post_json['isbn']
         name = post_json['book_name']
         author = post_json['author']
@@ -365,14 +365,14 @@ def update_book_isbn(request: HttpRequest):
         book = Book.objects.get(isbn=isbn)
         book.book_name = name
         book.author = author
-        book.pubulisher = pubulisher
+        book.publisher = pubulisher
         book.quantity = quantity
         book.book_category = book_category
         book.save()
     except:
-        return JsonResponse(data=[{'status': False}], safe=False)
+        return JsonResponse(data=[], safe=False,status=400)
     # 返回前端json
-    return JsonResponse(data=[{'status': True}], safe=False)
+    return JsonResponse(data=[], safe=False,status=200)
 
 
 @csrf_exempt
@@ -383,16 +383,16 @@ def delete_book_isbn(request):
         book = Book.objects.get(isbn=isbn)
         book.delete()
     except:
-        return JsonResponse(data=[{'status': False}], safe=False)
+        return JsonResponse(data=[], safe=False,status=400)
     # 返回前端json
-    return JsonResponse(data=[{'status': True}], safe=False)
+    return JsonResponse(data=[], safe=False,status=200)
 
 
 @csrf_exempt
 def lend_book(request):
     try:
         post_json = json.loads(request.body)
-        print(post_json)
+         
         isbn = post_json['isbn']
         card = post_json['card']
         person = Person.objects.get(card=card)
@@ -400,18 +400,23 @@ def lend_book(request):
         if (Lend.objects.filter(person=person).count() == person.education.max_lend_count
                 or book.quantity == 0):
             raise OverflowError
-        lend = Lend(person=person, book=book)
-        lend.save()
-        
-        book.quantity -= 1
-        book.save()
+        try:
+            reserve = Reserve.objects.get(person=person, book=book)
+            reserve.delete()
+            lend = Lend(person=person, book=book)
+            lend.save()
+        except:
+            lend = Lend(person=person, book=book)
+            lend.save()
+            
+            book.quantity -= 1
+            book.save()
 
-        
     except:
-        return JsonResponse(data=[{'status': False}], safe=False)
+        return JsonResponse(data=[], safe=False,status=400)
 
     # 返回前端json
-    return JsonResponse(data=[{'status': True}], safe=False)
+    return JsonResponse(data=[], safe=False,status=200)
 
 
 @csrf_exempt
@@ -431,16 +436,40 @@ def return_book(request):
 
         if lend_days > 0:
             fine = book.book_category.per_day_fine*lend_days
-            return JsonResponse(data=[{'fine': fine, 'status': False}], safe=False)
+            return JsonResponse(data=[{'fine': fine}], safe=False,status=400)
         book.quantity += 1
         book.save()
         lend.delete()
     except:
-        return JsonResponse(data=[{'fine': 0,'status': False}], safe=False)
+        return JsonResponse(data=[{'fine': 0}], safe=False,status=400)
     
     # 返回前端json
-    return JsonResponse(data=[{'fine': 0,'status': True}], safe=False)
+    return JsonResponse(data=[{'fine': 0}], safe=False,status=200)
 
+@csrf_exempt
+def reserve_book(request:HttpRequest):
+    try:
+        post_json = json.loads(request.body)
+         
+        isbn = post_json['isbn']
+        card = post_json['card']
+        person = Person.objects.get(card=card)
+        book = Book.objects.get(isbn=isbn)
+        if (Lend.objects.filter(person=person).count() == person.education.max_lend_count
+                or book.quantity == 0):
+            raise OverflowError
+        reserve = Reserve(person=person, book=book)
+        reserve.save()
+        
+        book.quantity -= 1
+        book.save()
+
+    except:
+        return JsonResponse(data=[], safe=False,status=400)
+
+    # 返回前端json
+    return JsonResponse(data=[], safe=False,status=200)
+        
 
 @csrf_exempt
 def img_read(request: HttpRequest, img_name: str):
@@ -448,8 +477,8 @@ def img_read(request: HttpRequest, img_name: str):
         with open(f'system_library/static/system_library/images/{img_name}', 'rb') as f:
             img_data = f.read()
     except:
-        return HttpResponse(None, content_type="image/png")
-    return HttpResponse(img_data, content_type="image/png")
+        return HttpResponse(None, content_type="image/png",status=400)
+    return HttpResponse(img_data, content_type="image/png",status=200)
 
 
 @csrf_exempt
@@ -462,5 +491,5 @@ def img_save(request: HttpRequest, img_name: str):
             for chunk in img.chunks():
                 f.write(chunk)
     except:
-        return JsonResponse([{'status': False}])
-    return JsonResponse([{'status': True}])
+        return JsonResponse([],status=400)
+    return JsonResponse([],status=200)

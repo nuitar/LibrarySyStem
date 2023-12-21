@@ -3,7 +3,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from datetime import date
 from django.utils import timezone
-
+from datetime import timedelta
 # ----------- Library Management System Models ------------
 
 
@@ -30,7 +30,7 @@ class Book(models.Model):
     quantity = models.IntegerField(default=1)
     book_add_datetime = models.DateTimeField(default=timezone.now())
 
-    pubulisher = models.CharField(max_length=200, default='')
+    publisher = models.CharField(max_length=200, default='')
     # 中外文图书，中外文杂志，论文
     # CHINESE,ENGLISH,EN_MAGZINE,CN_MAGZINE,THESIS = 0,1,2,3,4
     book_category = models.ForeignKey(BookCategory, on_delete=models.CASCADE)
@@ -95,5 +95,24 @@ class Lend(models.Model):
     class Meta:
         unique_together = ('person', 'book')
 
+    def get_person_name(self):
+        return self.person.name
+
+    def get_person_card(self):
+        return self.person.card
+
     def __str__(self):
-        return ('[' + self.person.name +']' + ' 借 ' +'《' + self.book.book_name) + '》'
+        return ('[' + self.person.name + ']' + ' 借 ' + '《' + self.book.book_name) + '》'
+
+
+class Reserve(models.Model):
+    person = models.ForeignKey(Person, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    reserve_date = models.DateTimeField(
+        default=timezone.now()+timedelta(days=1))
+
+    class Meta:
+        unique_together = ('person', 'book')
+
+    def __str__(self):
+        return ('[' + self.person.name + ']' + ' 预约 ' + '《' + self.book.book_name) + '》'

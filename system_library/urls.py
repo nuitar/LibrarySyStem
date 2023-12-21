@@ -16,6 +16,7 @@ urlpatterns = [
     path("person_query_lend", views.person_query_lend, name="person_query_lend"),
     path("person_add", views.add_person, name="person_add"),
     
+    path("reserve", views.reserve_book, name="reserve"),
     path("lend_query_all", views.query_lend_all, name="lend_query_all"),
     path("lend", views.lend_book, name="lend"),
     path("return", views.return_book, name="return"),
